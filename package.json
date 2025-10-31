@@ -1,0 +1,68 @@
+{
+  "name": "MNote",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "electron": "^19.0.8",
+    "electron-builder": "^23.1.0"
+  },
+  "build": {
+    "appId": "MNote",
+    "productName": "MNote",
+    "icon": "renderer/favicon.ico",
+    "copyright": "Copyright © 2025 changbin1997",
+    "compression": "maximum",
+    "asar": true,
+    "win": {
+      "icon": "assets/logo.ico",
+      "target": "nsis",
+      "legalTrademarks": "changbin1997"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": false
+    },
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "index.js",
+      "preload.js",
+      "app/**/*",
+      "assets/**/*",
+      "renderer/**/*",
+      "package.json",
+      "!**/node_modules/*",
+      "!node_modules/**/node_modules/*",
+      "!package-lock.json",
+      "!screenshots/**/*",
+      "!**/.*",
+      "!**/*.map",
+      "!**/test?(s)/**/*",
+      "!**/*.{md,txt,log,o,hprof,orig,pyc,pyo,rbc,pdb,ilk,bak}",
+      "!**/._*",
+      "!README.md",
+      "!LICENSE"
+    ],
+    "fileAssociations": [
+      {
+        "ext": "md",
+        "name": "markdown 文件",
+        "description": "通过 MNote 打开 Markdown 文件",
+        "icon": "assets/file-icon.ico"
+      }
+    ]
+  }
+}
