@@ -22,7 +22,7 @@ TOAST UI Editor 是一个前端的开源 Markdown 编辑器，我的编辑器的
 
 ## 下载说明
 
-release 中包含打包完成的安装包和免安装程序，其中 `MNote-win-portable.zip` 是免安装程序，解压后可以直接运行 `MNote.exe` ，免安装程序不会关联文件。`MNote-win-setup.exe` 是安装包，需要安装后才能使用，安装完成后程序会关联 `.md` 的 Markdown 文件，双击文件可以直接通过 MNote 打开文件。
+[release](https://github.com/changbin1997/MNote/releases) 中包含打包完成的安装包和免安装程序，其中 `MNote-win-portable.zip` 是免安装程序，解压后可以直接运行 `MNote.exe` ，免安装程序不会关联文件。`MNote-win-setup.exe` 是安装包，需要安装后才能使用，安装完成后程序会关联 `.md` 的 Markdown 文件，双击文件可以直接通过 MNote 打开文件。
 
 因为我用的是 Windows，目前也只打包了 Windows 版的。
 
@@ -31,7 +31,7 @@ release 中包含打包完成的安装包和免安装程序，其中 `MNote-win-
 Github 克隆：
 
 ```bash
-git clone url
+git clone https://github.com/changbin1997/MNote.git
 ```
 
 进入项目目录，安装依赖：
