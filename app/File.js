@@ -6,19 +6,30 @@ module.exports = class File {
   mainWindow = null; // 主窗口
   openFilePath = ''; // 当前打开的文件路径
   contentChange = false; // 内容改变
-  dragoverFilePath = '';  // 拖入的文件路径
+  dragoverFilePath = ''; // 拖入的文件路径
 
-  // 请求获取渲染进程编辑器的内容，用于保存文件
+  /**
+   * 请求获取渲染进程编辑器的内容，用于保存文件
+   * @param {Array<string>} exec - 请求内容后需要执行的回调操作标识
+   * @returns {void}
+   */
   getEditorContent(exec) {
     this.mainWindow.webContents.send('get-markdown', exec);
   }
 
-  // 请求获取渲染编辑器的HTML
+  /**
+   * 请求获取渲染编辑器的HTML
+   * @returns {void}
+   */
   getEditorHTML() {
     this.mainWindow.webContents.send('get-html');
   }
 
-  // 通过拖放文件的方式打开文件
+  /**
+   * 通过拖放文件的方式打开文件
+   * @param {string} [filePath=''] - 拖放进来的文件路径
+   * @returns {boolean} 操作是否取消或失败
+   */
   dragoverOpenFile(filePath = '') {
     if (filePath !== '') this.dragoverFilePath = filePath;
     // 如果编辑器的内容被更改且未保存
@@ -36,7 +47,7 @@ module.exports = class File {
       if (result === 0) {
         // 保存文件
         this.getEditorContent(['save', 'dragoverOpenFile']);
-      }else if (result === 1) {
+      } else if (result === 1) {
         this.contentChange = false;
         this.dragoverOpenFile();
       }
@@ -48,7 +59,7 @@ module.exports = class File {
       dialog.showMessageBoxSync(this.mainWindow, {
         title: '无法找到文件',
         message: `无法找到 ${this.dragoverFilePath}`,
-        detail: error.message,
+        detail: '文件不存在',
         buttons: ['关闭'],
         defaultId: 0,
         noLink: true
@@ -85,7 +96,10 @@ module.exports = class File {
     });
   }
 
-  // 通过关联文件的方式打开文件
+  /**
+   * 通过文件关联的方式打开文件
+   * @returns {void|boolean}
+   */
   fileAssociations() {
     if (process.argv.length >= 2) {
       const filePath = process.argv[1];
@@ -117,7 +131,10 @@ module.exports = class File {
     }
   }
 
-  // 打开文件
+  /**
+   * 打开文件
+   * @returns {boolean} 操作是否取消或失败
+   */
   openFile() {
     // 如果编辑器的内容被更改且未保存
     if (this.contentChange) {
@@ -134,7 +151,7 @@ module.exports = class File {
       if (result === 0) {
         // 保存文件
         this.getEditorContent(['save', 'openFile']);
-      }else if (result === 1) {
+      } else if (result === 1) {
         this.contentChange = false;
         this.openFile();
       }
@@ -181,7 +198,11 @@ module.exports = class File {
     });
   }
 
-  // 另存为
+  /**
+   * 另存为
+   * @param {string} content - 需要保存的文件内容
+   * @returns {boolean} 保存是否成功
+   */
   saveAs(content) {
     // 显示保存文件对话框
     const fileName = dialog.showSaveDialogSync(this.mainWindow, {
@@ -218,7 +239,11 @@ module.exports = class File {
     }
   }
 
-  // 保存
+  /**
+   * 保存
+   * @param {string} content - 需要保存的文件内容
+   * @returns {boolean} 保存是否成功
+   */
   save(content) {
     // 如果还没有打开过文件或文件不存在就直接调用另存为
     if (this.openFilePath === '' || !fs.existsSync(this.openFilePath)) {
@@ -246,7 +271,11 @@ module.exports = class File {
     }
   }
 
-  // 导出为 HTML
+  /**
+   * 导出为 HTML
+   * @param {string} htmlContent - 需要导出的 HTML 内容
+   * @returns {boolean} 导出是否成功
+   */
   exportHTML(htmlContent) {
     // 显示保存文件对话框
     const fileName = dialog.showSaveDialogSync(this.mainWindow, {
