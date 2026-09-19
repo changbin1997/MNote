@@ -80,10 +80,13 @@ module.exports = class File {
         return false;
       }
 
-      // 把文件传给渲染进程
-      this.mainWindow.webContents.send('open-file', content);
       // 设置当前打开的文件名
       this.openFilePath = this.dragoverFilePath;
+      // 把文件内容和所在目录传给渲染进程
+      this.mainWindow.webContents.send('open-file', {
+        content,
+        fileDir: path.dirname(this.openFilePath)
+      });
       // 把标题传给渲染进程
       this.mainWindow.webContents.send(
         'change-title',
@@ -117,10 +120,13 @@ module.exports = class File {
             return false;
           }
 
-          // 把文件传给渲染进程
-          this.mainWindow.webContents.send('open-file', content);
           // 设置当前打开的文件名
           this.openFilePath = filePath;
+          // 把文件内容和所在目录传给渲染进程
+          this.mainWindow.webContents.send('open-file', {
+            content,
+            fileDir: path.dirname(this.openFilePath)
+          });
           // 把标题传给渲染进程
           this.mainWindow.webContents.send(
             'change-title',
@@ -182,10 +188,13 @@ module.exports = class File {
         return false;
       }
 
-      // 把文件传给渲染进程
-      this.mainWindow.webContents.send('open-file', content);
       // 设置当前打开的文件名
       this.openFilePath = filePath[0];
+      // 把文件内容和所在目录传给渲染进程
+      this.mainWindow.webContents.send('open-file', {
+        content,
+        fileDir: path.dirname(this.openFilePath)
+      });
       // 把标题传给渲染进程
       this.mainWindow.webContents.send(
         'change-title',
@@ -220,6 +229,11 @@ module.exports = class File {
       this.mainWindow.webContents.send(
         'change-title',
         path.basename(this.openFilePath)
+      );
+      // 把新的文件目录发送给渲染进程，用于更新图片相对路径
+      this.mainWindow.webContents.send(
+        'file-dir',
+        path.dirname(this.openFilePath)
       );
       // 把内容已更改设置为 false
       this.contentChange = false;

@@ -1,9 +1,15 @@
 const editorContainer = document.querySelector('#editor');
 
 let contentChange = false; // 内容是否被修改
+let currentFileDir = ''; // 当前打开的 Markdown 文件所在目录
 
-const {Editor} = toastui;
-const {codeSyntaxHighlight } = Editor.plugin;
+const { Editor } = toastui;
+const { codeSyntaxHighlight } = Editor.plugin;
+
+// 解析图片路径：本地图片会由预加载脚本读取成 data URL
+function resolveImageSrc(src) {
+  return window.electronAPI.resolveImageSrc(currentFileDir, src);
+}
 
 // 创建编辑器实例
 const editor = new Editor({
@@ -13,7 +19,26 @@ const editor = new Editor({
   previewStyle: 'vertical',
   useCommandShortcut: false,
   language: 'zh-CN',
-  plugins: [codeSyntaxHighlight]
+  plugins: [codeSyntaxHighlight],
+  customHTMLRenderer: {
+    image(node, context) {
+      const { destination, title } = node;
+      context.skipChildren();
+      const attributes = {
+        src: resolveImageSrc(destination),
+        alt: context.getChildrenText(node)
+      };
+      if (title) {
+        attributes.title = title;
+      }
+      return {
+        type: 'openTag',
+        tagName: 'img',
+        selfClose: true,
+        attributes
+      };
+    }
+  }
 });
 
 // 编辑器内容改变时触发，提示未保存和内容已更改
@@ -38,8 +63,9 @@ window.electronAPI.onResponse('content-change', (ev, args) => {
 window.electronAPI.onResponse('open-file', (ev, args) => {
   // 移除编辑器内容改变事件
   editor.off('change');
+  currentFileDir = args.fileDir || '';
   // 在编辑器显示 markdown
-  editor.setMarkdown(args);
+  editor.setMarkdown(args.content);
   contentChange = false;
   // 编辑器内容改变时触发，用于记录内容变更
   editor.on('change', () => {
@@ -49,6 +75,11 @@ window.electronAPI.onResponse('open-file', (ev, args) => {
       document.title = `💾${document.title}`;
     }
   });
+});
+
+// 监听主进程发送的当前文件目录，用于“另存为”后更新相对路径基准
+window.electronAPI.onResponse('file-dir', (ev, args) => {
+  currentFileDir = args || '';
 });
 
 // 监听主进程发送的请求获取 Markdown 内容，用于保存文件
