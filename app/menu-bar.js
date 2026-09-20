@@ -63,6 +63,19 @@ module.exports = (mainWindow, file) => {
       ]
     },
     {
+      label: '视图(V)(&V)',
+      submenu: [
+        {
+          label: '侧边栏',
+          type: 'checkbox',
+          checked: false,
+          click(menuItem) {
+            mainWindow.webContents.send('toggle-sidebar', menuItem.checked);
+          }
+        }
+      ]
+    },
+    {
       label: '帮助(H)(&H)',
       submenu: [
         {

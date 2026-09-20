@@ -1,7 +1,12 @@
+const appContainer = document.querySelector('#app');
 const editorContainer = document.querySelector('#editor');
+const outlineContainer = document.querySelector('#outline');
 
 let contentChange = false; // 内容是否被修改
 let currentFileDir = ''; // 当前打开的 Markdown 文件所在目录
+let sidebarVisible = false; // 侧边栏是否显示
+let headingsCache = []; // 缓存解析到的大纲标题
+let outlineTimer = null; // 大纲刷新防抖定时器
 
 const { Editor } = toastui;
 const { codeSyntaxHighlight } = Editor.plugin;
@@ -41,14 +46,17 @@ const editor = new Editor({
   }
 });
 
-// 编辑器内容改变时触发，提示未保存和内容已更改
-editor.on('change', () => {
+// 编辑器内容改变时触发
+function onChange() {
   if (!contentChange) {
     contentChange = true;
     window.electronAPI['ipc-invoke']('content-change', contentChange);
     document.title = `💾${document.title}`;
   }
-});
+  scheduleOutlineRefresh();
+}
+
+editor.on('change', onChange);
 
 // 监听主进程发送的内容更改调整，用于提示已保存或未保存
 window.electronAPI.onResponse('content-change', (ev, args) => {
@@ -62,19 +70,15 @@ window.electronAPI.onResponse('content-change', (ev, args) => {
 // 监听主进程发送的显示 Markdown 内容
 window.electronAPI.onResponse('open-file', (ev, args) => {
   // 移除编辑器内容改变事件
-  editor.off('change');
+  editor.off('change', onChange);
   currentFileDir = args.fileDir || '';
   // 在编辑器显示 markdown
   editor.setMarkdown(args.content);
   contentChange = false;
   // 编辑器内容改变时触发，用于记录内容变更
-  editor.on('change', () => {
-    if (!contentChange) {
-      contentChange = true;
-      window.electronAPI['ipc-invoke']('content-change', contentChange);
-      document.title = `💾${document.title}`;
-    }
-  });
+  editor.on('change', onChange);
+  // 立即刷新大纲
+  refreshOutline();
 });
 
 // 监听主进程发送的当前文件目录，用于“另存为”后更新相对路径基准
@@ -102,6 +106,138 @@ window.electronAPI.onResponse('get-html', () => {
 window.electronAPI.onResponse('change-title', (ev, args) => {
   document.title = `${args} - MNote`;
 });
+
+// ========== 侧边栏与大纲 ==========
+
+function setSidebarVisible(visible) {
+  sidebarVisible = !!visible;
+  appContainer.classList.toggle('show-sidebar', sidebarVisible);
+}
+
+// 监听主进程发送的侧边栏显隐切换
+window.electronAPI.onResponse('toggle-sidebar', (ev, visible) => {
+  setSidebarVisible(visible);
+});
+
+// 解码 HTML 实体，使解析出的标题与预览区 textContent 一致
+function decodeHtmlEntities(html) {
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = html;
+  return textarea.value;
+}
+
+// 解析 Markdown 中的标题，忽略代码块中的内容
+function parseHeadings(md) {
+  const headings = [];
+  let inCode = false;
+  const lines = md.split(/\r?\n/);
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inCode = !inCode;
+      continue;
+    }
+    if (inCode) {
+      continue;
+    }
+    const m = line.match(/^\s{0,3}(#{1,6})(\s+|$)(.*)$/);
+    if (m) {
+      let text = m[3].trim().replace(/#+\s*$/, '');
+      // 去掉 Markdown 行内标记、HTML 标签和链接语法，尽量与预览区 textContent 一致
+      text = text
+        .replace(/<[^>]+>/g, '')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/[*_`~]/g, '');
+      text = decodeHtmlEntities(text).trim();
+      if (text) {
+        headings.push({ level: m[1].length, text: text });
+      }
+    }
+  }
+  return headings;
+}
+
+// 渲染大纲列表
+function renderOutline() {
+  if (!outlineContainer) return;
+
+  outlineContainer.innerHTML = '';
+  if (headingsCache.length === 0) {
+    const li = document.createElement('li');
+    const link = document.createElement('a');
+    link.textContent = '暂无标题';
+    link.style.color = '#999';
+    link.style.cursor = 'default';
+    li.appendChild(link);
+    outlineContainer.appendChild(li);
+    return;
+  }
+
+  headingsCache.forEach((h, index) => {
+    const li = document.createElement('li');
+    const link = document.createElement('a');
+    link.textContent = h.text;
+    link.title = h.text;
+    link.style.paddingLeft = `${8 + (h.level - 1) * 14}px`;
+    link.addEventListener('click', () => scrollToHeading(index));
+    li.appendChild(link);
+    outlineContainer.appendChild(li);
+  });
+}
+
+// 点击大纲项，滚动到预览区对应标题
+function scrollToHeading(index) {
+  const heading = headingsCache[index];
+  if (!heading) {
+    return;
+  }
+
+  const preview = editorContainer.querySelector('.toastui-editor-md-preview');
+  if (!preview) {
+    return;
+  }
+
+  const els = Array.from(preview.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+  let matched = 0;
+  let targetEl = null;
+  for (const el of els) {
+    const elLevel = parseInt(el.tagName.charAt(1), 10);
+    if (elLevel === heading.level && (el.textContent || '').trim() === heading.text) {
+      if (matched === index) {
+        targetEl = el;
+        break;
+      }
+      matched++;
+    }
+  }
+  // 兜底：按标题在预览区出现的顺序滚动
+  if (!targetEl && index < els.length) {
+    targetEl = els[index];
+  }
+  if (!targetEl) {
+    return;
+  }
+
+  // 手动计算目标位置，避免 scrollIntoView 受多层滚动容器影响只滚动一点
+  const previewRect = preview.getBoundingClientRect();
+  const targetRect = targetEl.getBoundingClientRect();
+  const scrollTop = preview.scrollTop + (targetRect.top - previewRect.top);
+  preview.scrollTo({ top: scrollTop, behavior: 'smooth' });
+}
+
+// 立即刷新大纲
+function refreshOutline() {
+  headingsCache = parseHeadings(editor.getMarkdown());
+  renderOutline();
+}
+
+// 内容变化后防抖刷新大纲
+function scheduleOutlineRefresh() {
+  clearTimeout(outlineTimer);
+  outlineTimer = setTimeout(refreshOutline, 300);
+}
+
+// 初始化一次大纲
+refreshOutline();
 
 // 拖拽文件打开
 window.addEventListener('dragover', (ev) => {
